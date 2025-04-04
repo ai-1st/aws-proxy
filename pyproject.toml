@@ -1,0 +1,30 @@
+[project]
+name = "aws-proxy"
+version = "0.1.0"
+description = "Proxies requests to AWS APIs allowing only requests using a whitelist of IAM Roles; optionally produces an audit trail in CloudWatch Logs"
+authors = [
+    {name = "Dmitry Degtyarev",email = "ddegtyarev@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "click (>=8.1.7,<9.0.0)",
+    "mitm (>=1.5.0,<2.0.0)",
+    "setuptools (>=78.1.0,<79.0.0)",
+    "httpq (>=1.2.0,<2.0.0)"
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[tool.poetry.scripts]
+aws-proxy = "aws_proxy.main:cli"
+
+[tool.poetry.group.dev.dependencies]
+boto3 = "^1.37.27"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
