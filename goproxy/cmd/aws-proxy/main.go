@@ -7,17 +7,19 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/xo/aws-proxy/pkg/proxy"
 )
 
 var (
-	addr        = flag.String("addr", ":8080", "Proxy listen address")
-	verbose     = flag.Bool("verbose", true, "Enable verbose logging")
-	certFile    = flag.String("cert", "aws-proxy.crt", "Path to TLS certificate file (default: aws-proxy.crt in current directory)")
-	keyFile     = flag.String("key", "aws-proxy.key", "Path to TLS key file (default: aws-proxy.key in current directory)")
-	permissive  = flag.Bool("permissive", true, "Allow all requests regardless of IAM role")
+	addr            = flag.String("addr", ":8080", "Proxy listen address")
+	verbose         = flag.Bool("verbose", true, "Enable verbose logging")
+	certFile        = flag.String("cert", "aws-proxy.crt", "Path to TLS certificate file (default: aws-proxy.crt in current directory)")
+	keyFile         = flag.String("key", "aws-proxy.key", "Path to TLS key file (default: aws-proxy.key in current directory)")
+	permissive      = flag.Bool("permissive", true, "Allow all requests regardless of IAM role")
+	allowedAccounts = flag.String("allowed-accounts", "", "Comma-separated list of allowed AWS account IDs")
 )
 
 func main() {
@@ -27,7 +29,7 @@ func main() {
 	logger := log.New(os.Stdout, "[aws-proxy] ", log.LstdFlags)
 	logger.Printf("Starting AWS Proxy on %s", *addr)
 	logger.Printf("Permissive mode: %v", *permissive)
-	
+
 	// Convert relative paths to absolute paths
 	certPath := *certFile
 	keyPath := *keyFile
@@ -43,12 +45,27 @@ func main() {
 			keyPath = absPath
 		}
 	}
-	
+
 	logger.Printf("Certificate file: %s", certPath)
 	logger.Printf("Key file: %s", keyPath)
 
+	// Parse allowed account IDs
+	var allowedAccountsList []string
+	if *allowedAccounts != "" {
+		allowedAccountsList = strings.Split(*allowedAccounts, ",")
+		// Remove any empty strings that might result from trailing commas
+		var cleanList []string
+		for _, acc := range allowedAccountsList {
+			if acc = strings.TrimSpace(acc); acc != "" {
+				cleanList = append(cleanList, acc)
+			}
+		}
+		allowedAccountsList = cleanList
+	}
+	logger.Printf("Allowed AWS accounts: %v", allowedAccountsList)
+
 	// Create a new AWS proxy
-	awsProxy, err := proxy.NewAWSProxy(logger, certPath, keyPath, *permissive)
+	awsProxy, err := proxy.NewAWSProxy(logger, certPath, keyPath, *permissive, allowedAccountsList)
 	if err != nil {
 		logger.Fatalf("Error creating AWS proxy: %v", err)
 	}

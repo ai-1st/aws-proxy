@@ -24,6 +24,12 @@ type AWSProxy struct {
 	caKeyFile   string
 }
 
+type contextKey string
+
+const (
+	isAssumeRoleKey contextKey = "isAssumeRole"
+)
+
 // Custom certificate storage adapter for goproxy
 type certStorageAdapter struct {
 	certManager *cert.CertManager
@@ -43,7 +49,7 @@ func (c *certStorageAdapter) Fetch(hostname string, gen func() (*tls.Certificate
 }
 
 // NewAWSProxy creates a new AWS proxy
-func NewAWSProxy(logger *log.Logger, certFile, keyFile string, permissive bool) (*AWSProxy, error) {
+func NewAWSProxy(logger *log.Logger, certFile, keyFile string, permissive bool, allowedAccounts []string) (*AWSProxy, error) {
 	// Create a certificate manager
 	certManager, err := cert.NewCertManager(certFile, keyFile)
 	if err != nil {
@@ -54,7 +60,10 @@ func NewAWSProxy(logger *log.Logger, certFile, keyFile string, permissive bool) 
 	certManager.SetLogger(logger)
 
 	// Create a policy engine
-	policyEngine := policy.NewPolicyEngine(logger, permissive)
+	policyEngine, err := policy.NewPolicyEngine(logger, permissive, allowedAccounts)
+	if err != nil {
+		return nil, err
+	}
 
 	// Create a new proxy
 	proxy := goproxy.NewProxyHttpServer()
@@ -120,11 +129,26 @@ func (p *AWSProxy) setupProxy() {
 	p.proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 		p.logger.Printf("Request: %s %s", req.Method, req.URL)
 
-		// Check for AWS API calls
+		// Check if the request is allowed
+		if !p.policy.IsAllowed(req) {
+			p.logger.Printf("Blocking request based on policy: %s %s", req.Method, req.URL)
+
+			// Drain the request body if it exists to prevent TLS warnings
+			if req.Body != nil {
+				io.Copy(io.Discard, req.Body)
+				req.Body.Close()
+			}
+
+			return req, goproxy.NewResponse(req, goproxy.ContentTypeText, http.StatusForbidden, "Blocked by aws-proxy policy")
+		}
+
+		// Check if this is an AssumeRole request
+		isAssumeRole := p.policy.IsAssumeRole(req)
+		ctx.UserData = isAssumeRole
+
+		// Log AWS headers if present
 		if req.Header.Get("Authorization") != "" && strings.Contains(req.Header.Get("Authorization"), "AWS4-HMAC-SHA256") {
 			p.logger.Printf("Found AWS Authorization header (SigV4 signature)")
-
-			// Log AWS headers
 			for k, v := range req.Header {
 				if strings.HasPrefix(k, "X-Amz-") {
 					p.logger.Printf("AWS Header: %s: %s", k, v[0])
@@ -132,6 +156,7 @@ func (p *AWSProxy) setupProxy() {
 			}
 		}
 
+		// Allow the request to proceed
 		return req, nil
 	})
 
@@ -140,58 +165,29 @@ func (p *AWSProxy) setupProxy() {
 		if resp != nil && ctx.Req != nil {
 			p.logger.Printf("Response: %d %s %s", resp.StatusCode, ctx.Req.Method, ctx.Req.URL)
 
-			// Log full response body for STS requests
-			p.logger.Printf("Processing STS response for: %s", ctx.Req.URL)
+			// Process STS responses
+			if ctx.UserData != nil && ctx.UserData.(bool) {
+				p.logger.Printf("Processing AssumeRole response for: %s", ctx.Req.URL)
 
-			// Read the response body
-			bodyBytes, err := io.ReadAll(resp.Body)
-			if err != nil {
-				p.logger.Printf("Error reading STS response body: %v", err)
+				// Read the response body
+				bodyBytes, err := io.ReadAll(resp.Body)
+				if err != nil {
+					p.logger.Printf("Error reading response body: %v", err)
+				} else {
+					// Close the original body
+					resp.Body.Close()
+
+					// Log the full response body
+					p.logger.Printf("STS Response Body:\n%s", string(bodyBytes))
+
+					// Process the response using policy engine
+					p.policy.ProcessAssumeRoleResponse(ctx.Req, bodyBytes)
+
+					// Restore the body for future readers
+					resp.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
+				}
 			} else {
-				// Close the original body
-				resp.Body.Close()
-
-				// Log the full response body
-				p.logger.Printf("STS Response Body:\n%s", string(bodyBytes))
-
-				// Extract AWS access key from the request
-				accessKey := ""
-				authHeader := ctx.Req.Header.Get("Authorization")
-				if authHeader != "" && strings.Contains(authHeader, "AWS4-HMAC-SHA256") {
-					credStart := strings.Index(authHeader, "Credential=")
-					if credStart >= 0 {
-						slashPos := strings.Index(authHeader[credStart+11:], "/")
-						if slashPos >= 0 {
-							accessKey = authHeader[credStart+11 : credStart+11+slashPos]
-						}
-					}
-				}
-
-				// Extract role ARN from the response if it's a GetCallerIdentity response
-				if strings.Contains(string(bodyBytes), "GetCallerIdentityResponse") {
-					arnStart := strings.Index(string(bodyBytes), "<Arn>")
-					arnEnd := strings.Index(string(bodyBytes), "</Arn>")
-					if arnStart >= 0 && arnEnd > arnStart {
-						roleARN := string(bodyBytes)[arnStart+5 : arnEnd]
-						p.logger.Printf("Extracted from GetCallerIdentity - AWS_ACCESS_KEY:ROLE_ARN = %s:%s",
-							accessKey, roleARN)
-					}
-				}
-
-				// Extract role ARN from the response if it's an AssumeRole response
-				if strings.Contains(string(bodyBytes), "AssumeRoleResponse") {
-					// Look for the AssumedRoleUser/Arn element
-					arnStart := strings.Index(string(bodyBytes), "<Arn>")
-					arnEnd := strings.Index(string(bodyBytes), "</Arn>")
-					if arnStart >= 0 && arnEnd > arnStart {
-						roleARN := string(bodyBytes)[arnStart+5 : arnEnd]
-						p.logger.Printf("Extracted from AssumeRole - AWS_ACCESS_KEY:ROLE_ARN = %s:%s",
-							accessKey, roleARN)
-					}
-				}
-
-				// Restore the body for future readers
-				resp.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
+				p.logger.Printf("Skipping non-AssumeRole response for: %s", ctx.Req.URL)
 			}
 		}
 		return resp

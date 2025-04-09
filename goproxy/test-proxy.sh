@@ -15,7 +15,7 @@ ABSOLUTE_CERT_PATH="$(pwd)/$CERT_FILE"
 # Start the proxy in the background with output to a log file
 echo "Starting AWS proxy on port 8080..."
 cd build
-./aws-proxy --addr=:8080 --permissive=true --verbose=true --cert="$CERT_FILE" --key="$KEY_FILE" > aws-proxy.log 2>&1 &
+./aws-proxy --addr=:8080 --permissive=false --allowed-accounts=$ALLOWED_ACCOUNTS --verbose=true --cert="$CERT_FILE" --key="$KEY_FILE" > aws-proxy.log 2>&1 &
 PROXY_PID=$!
 
 # Wait for the proxy to start
@@ -52,14 +52,26 @@ cleanup() {
 # Set up trap to clean up on exit
 trap cleanup INT TERM EXIT
 
-echo
-echo "Testing with AWS CLI twice..."
 echo "Running: aws sts get-caller-identity"
 aws sts get-caller-identity
-echo "Running: aws sts get-caller-identity (second call)"
-aws sts get-caller-identity
 echo "Running: aws sts assume-role"
-aws sts assume-role --role-arn $TEST_ASSUME_ROLE --role-session-name Test
+source_role_credentials=$(aws sts assume-role --role-arn $TEST_ASSUME_ROLE --role-session-name Test)
+
+# Extract the keys from the output and export them
+export AWS_ACCESS_KEY_ID=$(echo $source_role_credentials| jq -r '.Credentials.AccessKeyId')
+export AWS_SECRET_ACCESS_KEY=$(echo $source_role_credentials| jq -r '.Credentials.SecretAccessKey')
+export AWS_SESSION_TOKEN=$(echo $source_role_credentials| jq -r '.Credentials.SessionToken')
+
+echo "Running: aws sts assume-role with new credentials"
+source_role_credentials=$(aws sts assume-role --role-arn $TEST_ASSUME_ROLE2 --role-session-name Test --external-id $TEST_EXTERNAL_ID)
+
+# Extract the keys from the output and export them
+export AWS_ACCESS_KEY_ID=$(echo $source_role_credentials| jq -r '.Credentials.AccessKeyId')
+export AWS_SECRET_ACCESS_KEY=$(echo $source_role_credentials| jq -r '.Credentials.SecretAccessKey')
+export AWS_SESSION_TOKEN=$(echo $source_role_credentials| jq -r '.Credentials.SessionToken')
+
+echo "Running: aws sts get-caller-identity with new credentials"
+aws sts get-caller-identity
 
 echo
 echo "Proxy logs"
