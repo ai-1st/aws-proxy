@@ -258,7 +258,7 @@ func (p *PolicyEngine) ProcessAssumeRoleResponse(req *http.Request, bodyBytes []
 		return
 	}
 
-	newAccessKeyID := body[keyStart+12 : keyEnd]
+	newAccessKeyID := body[keyStart+13 : keyEnd]
 	p.logger.Printf("Extracted new access key from AssumeRole: %s", newAccessKeyID)
 
 	// Verify once again that the source access key is in our cache and allowed

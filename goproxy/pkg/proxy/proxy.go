@@ -139,7 +139,17 @@ func (p *AWSProxy) setupProxy() {
 				req.Body.Close()
 			}
 
-			return req, goproxy.NewResponse(req, goproxy.ContentTypeText, http.StatusForbidden, "Blocked by aws-proxy policy")
+			// Create AWS-style error response
+			errorResponse := 
+			`<?xml version="1.0" encoding="UTF-8"?>
+			<ErrorResponse>
+				<Error>
+					<Code>AccessDenied</Code>
+					<Message>Request blocked by aws-proxy policy</Message>
+				</Error>
+			</ErrorResponse>`
+
+			return req, goproxy.NewResponse(req, "application/xml", http.StatusForbidden, errorResponse)
 		}
 
 		// Check if this is an AssumeRole request
@@ -176,9 +186,6 @@ func (p *AWSProxy) setupProxy() {
 				} else {
 					// Close the original body
 					resp.Body.Close()
-
-					// Log the full response body
-					p.logger.Printf("STS Response Body:\n%s", string(bodyBytes))
 
 					// Process the response using policy engine
 					p.policy.ProcessAssumeRoleResponse(ctx.Req, bodyBytes)
