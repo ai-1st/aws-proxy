@@ -127,11 +127,8 @@ func (p *AWSProxy) setupProxy() {
 
 	// Handle all requests
 	p.proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-		p.logger.Printf("Request: %s %s", req.Method, req.URL)
-
 		// Check if the request is allowed
 		if !p.policy.IsAllowed(req) {
-			p.logger.Printf("Blocking request based on policy: %s %s", req.Method, req.URL)
 
 			// Drain the request body if it exists to prevent TLS warnings
 			if req.Body != nil {
@@ -173,16 +170,12 @@ func (p *AWSProxy) setupProxy() {
 	// Handle all responses
 	p.proxy.OnResponse().DoFunc(func(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
 		if resp != nil && ctx.Req != nil {
-			p.logger.Printf("Response: %d %s %s", resp.StatusCode, ctx.Req.Method, ctx.Req.URL)
-
 			// Process STS responses
 			if ctx.UserData != nil && ctx.UserData.(bool) {
-				p.logger.Printf("Processing AssumeRole response for: %s", ctx.Req.URL)
-
 				// Read the response body
 				bodyBytes, err := io.ReadAll(resp.Body)
 				if err != nil {
-					p.logger.Printf("Error reading response body: %v", err)
+					p.logger.Printf("BAD RESPONSE: Error reading response body: %v", err)
 				} else {
 					// Close the original body
 					resp.Body.Close()
@@ -193,9 +186,7 @@ func (p *AWSProxy) setupProxy() {
 					// Restore the body for future readers
 					resp.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
 				}
-			} else {
-				p.logger.Printf("Skipping non-AssumeRole response for: %s", ctx.Req.URL)
-			}
+			} 
 		}
 		return resp
 	})

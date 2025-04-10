@@ -241,11 +241,6 @@ func (cm *CertManager) GenerateCertForHost(host string) (*tls.Certificate, error
 		}
 	}
 
-	// Log that we're generating a certificate for this host
-	if cm.logger != nil {
-		cm.logger.Printf("Generating certificate for domain: %s", host)
-	}
-
 	// Generate a new private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -292,12 +287,6 @@ func (cm *CertManager) GenerateCertForHost(host string) (*tls.Certificate, error
 		if err := cm.certStore.Store(host, &cert); err != nil {
 			cm.logger.Printf("Warning: Failed to store certificate in cache: %v", err)
 		}
-	}
-
-	// Log successful certificate generation
-	if cm.logger != nil {
-		cm.logger.Printf("Successfully generated certificate for domain: %s (valid until: %s)", 
-			host, template.NotAfter.Format(time.RFC3339))
 	}
 
 	return &cert, nil

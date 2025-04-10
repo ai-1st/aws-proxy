@@ -34,9 +34,6 @@ func (s *CertificateStorage) Fetch(host string) (*tls.Certificate, error) {
 	defer s.mu.RUnlock()
 
 	if cert, ok := s.certCache.Get(host); ok {
-		if s.logger != nil {
-			s.logger.Printf("Using cached certificate for domain: %s", host)
-		}
 		return cert.(*tls.Certificate), nil
 	}
 	return nil, nil
@@ -47,9 +44,6 @@ func (s *CertificateStorage) Store(host string, cert *tls.Certificate) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.logger != nil {
-		s.logger.Printf("Storing certificate for domain: %s", host)
-	}
 	s.certCache.Add(host, cert)
 	return nil
 }

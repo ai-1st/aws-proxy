@@ -20,7 +20,7 @@ func TestAccessKeyCache(t *testing.T) {
 	// Manually add a test access key to the cache
 	testAccessKey := "AKIATESTKEY12345678"
 	testAccountID := "123456789012"
-	testRoles := []string{"arn:aws:iam::123456789012:role/test-role"}
+	testRole := "arn:aws:iam::123456789012:role/test-role"
 	
 	engine.CacheAccessKey(testAccessKey, testAccountID, testRoles)
 	
@@ -34,8 +34,8 @@ func TestAccessKeyCache(t *testing.T) {
 		t.Errorf("Expected account ID %s, got %s", testAccountID, info.AccountID)
 	}
 	
-	if len(info.RoleARNs) != 1 || info.RoleARNs[0] != testRoles[0] {
-		t.Errorf("Expected roles %v, got %v", testRoles, info.RoleARNs)
+	if RoleARN != testRole {
+		t.Errorf("Expected role %v, got %v", testRole, info.RoleARN)
 	}
 	
 	// Test with a request that has the cached access key
@@ -101,7 +101,7 @@ func TestAccessKeyCache(t *testing.T) {
 	}
 	
 	expectedRole := "arn:aws:sts::123456789012:assumed-role/test-role/session"
-	if len(assumedKeyInfo.RoleARNs) != 1 || assumedKeyInfo.RoleARNs[0] != expectedRole {
-		t.Errorf("Expected role %s for assumed role, got %v", expectedRole, assumedKeyInfo.RoleARNs)
+	if assumedKeyInfo.RoleARN != expectedRole {
+		t.Errorf("Expected role %s for assumed role, got %v", expectedRole, assumedKeyInfo.RoleARN)
 	}
 }

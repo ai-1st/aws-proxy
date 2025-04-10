@@ -85,8 +85,7 @@ func main() {
 	}()
 
 	logger.Printf("Proxy server started on %s", *addr)
-	logger.Printf("To use with AWS CLI, set: export AWS_CA_BUNDLE=%s", awsProxy.GetCACertFile())
-
+	
 	// Wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
