@@ -39,7 +39,6 @@ type certStorageAdapter struct {
 // Fetch implements the goproxy.CertStorage interface
 func (c *certStorageAdapter) Fetch(hostname string, gen func() (*tls.Certificate, error)) (*tls.Certificate, error) {
 	// Try to generate certificate using our cert manager
-	c.logger.Printf("Certificate requested for domain: %s", hostname)
 	tlsCert, err := c.certManager.GenerateCertForHost(hostname)
 	if err != nil {
 		c.logger.Printf("Failed to generate certificate for %s: %v, falling back to default generator", hostname, err)
@@ -152,16 +151,6 @@ func (p *AWSProxy) setupProxy() {
 		// Check if this is an AssumeRole request
 		isAssumeRole := p.policy.IsAssumeRole(req)
 		ctx.UserData = isAssumeRole
-
-		// Log AWS headers if present
-		if req.Header.Get("Authorization") != "" && strings.Contains(req.Header.Get("Authorization"), "AWS4-HMAC-SHA256") {
-			p.logger.Printf("Found AWS Authorization header (SigV4 signature)")
-			for k, v := range req.Header {
-				if strings.HasPrefix(k, "X-Amz-") {
-					p.logger.Printf("AWS Header: %s: %s", k, v[0])
-				}
-			}
-		}
 
 		// Allow the request to proceed
 		return req, nil
