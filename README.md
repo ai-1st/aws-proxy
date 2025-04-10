@@ -1,127 +1,93 @@
-# AWS Proxy
+# AWS Proxy (Go Implementation)
 
-An asynchronous proxy server for AWS API requests with SSL termination, request/response logging, and certificate management.
+A Go-based implementation of the AWS proxy using the goproxy library for MITM interception of AWS API calls.
 
-## Description
+## Features
 
-AWS Proxy is a MITM (Man-In-The-Middle) proxy server that intercepts and logs AWS API requests and responses. It provides:
+- Intercepts and inspects AWS API calls
+- Logs request and response details
+- Permissive mode (allows all requests but logs details)
+- Support for TLS interception with custom certificates
+- Caching capability for responses (configurable)
 
-- SSL termination and inspection of HTTPS traffic
-- Detailed logging of request and response headers and bodies
-- Support for AWS API authentication and authorization
-- Certificate management for secure connections
+## Requirements
 
-## Installation
+- Go 1.16 or higher
 
-```bash
-# Install dependencies
-poetry install
-
-# Generate certificates (first run will do this automatically)
-# Certificates are stored in ~/.aws-proxy/certs/
-```
-
-## Certificate Setup
-
-For HTTPS inspection to work properly, you need to trust the CA certificate:
-
-1. The certificate is automatically generated at `~/.aws-proxy/certs/mitm.pem`
-2. Add this certificate to your system's trusted certificate store:
-
-   **macOS**:
-   ```bash
-   sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.aws-proxy/certs/mitm.pem
-   ```
-
-   **Linux**:
-   ```bash
-   # Debian/Ubuntu
-   sudo cp ~/.aws-proxy/certs/mitm.pem /usr/local/share/ca-certificates/aws-proxy-ca.crt
-   sudo update-ca-certificates
-   ```
-
-## Usage
-
-### Starting the Proxy Server
+## Building
 
 ```bash
-# Start the proxy server
-poetry run aws-proxy
-
-# Or with custom host/port
-poetry run aws-proxy --host 127.0.0.1 --port 8080
+# Build the binary
+cd goproxy
+go build -o ./build/aws-proxy ./cmd/aws-proxy
 ```
 
-### Testing with curl
+## Running
 
 ```bash
-# Test with curl
-curl -x http://127.0.0.1:8080 https://example.com
+# Run with default settings (permissive mode, caching enabled)
+cd build
+./aws-proxy
 
-# Or use the test script
-./test.sh
+# Run with custom options
+./aws-proxy --addr=:8081 --permissive=true --verbose=true
 ```
 
-### Testing AWS API Calls
+## Command Line Options
+
+- `--addr`: Proxy listen address (default: ":8080")
+- `--verbose`: Enable verbose logging (default: true)
+- `--cert`: Path to TLS certificate file (optional)
+- `--key`: Path to TLS key file (optional)
+- `--permissive`: Allow all requests regardless of IAM role (default: true)
+- `--cache`: Enable response caching (default: true)
+
+## Docker
+
+Build and run using Docker:
 
 ```bash
-# Test basic AWS operations
-poetry run python tests/test_aws_calls.py
+# Build the Docker image
+cd goproxy
+docker build -t aws-proxy .
 
-# Test with a specific IAM role
-poetry run python tests/test_aws_calls.py --role-arn "arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME"
-
-# Skip specific tests
-poetry run python tests/test_aws_calls.py --skip-s3 --skip-sts
+# Run the container
+docker run -p 8080:8080 aws-proxy
 ```
 
-### AWS SDK Configuration
+## Setting Up Clients
 
-To configure AWS SDKs to use the proxy:
-
-**Python (boto3)**:
-```python
-import boto3
-from botocore.config import Config
-
-proxy_config = Config(
-    proxies={
-        'http': 'http://127.0.0.1:8080',
-        'https': 'http://127.0.0.1:8080',
-    }
-)
-
-# Use the CA certificate for verification
-s3 = boto3.client('s3', config=proxy_config, verify='~/.aws-proxy/certs/mitm.pem')
-```
-
-**AWS CLI**:
-```bash
-# Set environment variables
-export HTTP_PROXY=http://127.0.0.1:8080
-export HTTPS_PROXY=http://127.0.0.1:8080
-export AWS_CA_BUNDLE=~/.aws-proxy/certs/mitm.pem
-
-# Run AWS CLI commands
-aws s3 ls
-```
-
-## Logs
-
-The proxy server logs all requests and responses to the console. You can redirect logs to files:
+To use the proxy with AWS clients, set the following environment variables:
 
 ```bash
-# Log proxy output to a file
-poetry run aws-proxy > proxy_log.txt 2>&1
+export HTTP_PROXY=http://localhost:8080
+export HTTPS_PROXY=http://localhost:8080
 ```
+
+For proper TLS interception, clients need to trust the proxy's CA certificate.
 
 ## Architecture
 
-- **main.py**: Core proxy server implementation using the MITM package
-- **middleware.py**: Request/response interceptor and logger
-- **http.py**: HTTP parsing utilities
-- **tests/**: Test scripts for validating proxy functionality
+The proxy consists of several components:
 
-## License
+1. **Proxy Server**: Handles HTTP/HTTPS connections and MITM interception
+2. **Certificate Manager**: Manages TLS certificates for MITM
+3. **Policy Engine**: Validates IAM roles (in permissive mode, allows everything)
+4. **Cache Manager**: Caches responses for improved performance
 
-MIT
+## Current Implementation
+
+This is a permissive implementation that allows all requests but logs what is happening. It:
+
+- Logs all AWS API requests and responses
+- Identifies AWS-specific headers and SigV4 signatures
+- Detects STS and GetCallerIdentity calls
+- Provides infrastructure for future role-based access control
+
+## Future Enhancements
+
+- Parse SigV4 signatures to extract Access Key IDs
+- Implement role-based access control
+- Parse STS responses to extract assumed role information
+- Implement more sophisticated caching rules
+- Add metrics and monitoring
