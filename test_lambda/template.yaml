@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  ROLE1ARN:
+    Type: String
+    Description: Full ARN of the role to assume in the current account
+  ROLE2NAME:
+    Type: String
+    Description: Name of the role to assume in target accounts
+  S3OUTPUTBUCKET:
+    Type: String
+    Description: S3 bucket for output CSV files
+  S3OUTPUTPATH:
+    Type: String
+    Description: S3 path prefix for output CSV files
+  SUBNETID:
+    Type: String
+    Description: Subnet ID for Lambda VPC configuration
+  SECURITYGROUPID:
+    Type: String
+    Description: Security Group ID for Lambda VPC configuration
+  HTTPPROXY:
+    Type: String
+    Description: HTTP proxy for Lambda
+  AWSCABUNDLE:
+    Type: String
+    Description: Path to CA bundle
+    Default: /opt/aws-proxy.crt
+
+Resources:
+  RDSMetricsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      Timeout: 900
+      MemorySize: 512
+      Environment:
+        Variables:
+          ROLE1ARN: !Ref ROLE1ARN
+          ROLE2NAME: !Ref ROLE2NAME
+          S3OUTPUTBUCKET: !Ref S3OUTPUTBUCKET
+          S3OUTPUTPATH: !Ref S3OUTPUTPATH
+          HTTPPROXY: !Ref HTTPPROXY
+          AWSCABUNDLE: !Ref AWSCABUNDLE
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SECURITYGROUPID
+        SubnetIds:
+          - !Ref SUBNETID
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sts:AssumeRole
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - rds:DescribeDBInstances
+                - cloudwatch:GetMetricStatistics
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub 'arn:aws:s3:::${S3OUTPUTBUCKET}/${S3OUTPUTPATH}/*'
