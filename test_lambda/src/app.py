@@ -6,6 +6,7 @@ import io
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
 # Set up logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -56,23 +57,25 @@ def get_metrics(cloudwatch, cluster, start_time, end_time):
     results = {}
     for metric_name, (namespace, metric) in metrics.items():
         try:
-            # Get p95 statistics (except for VolumeBytesUsed and BufferCacheHitRatio)
+            # Get p99 statistics (except for VolumeBytesUsed and BufferCacheHitRatio)
             if metric_name not in ['VolumeBytesUsed', 'BufferCacheHitRatio']:
-                p95_response = cloudwatch.get_metric_statistics(
+                p99_response = cloudwatch.get_metric_statistics(
                     Namespace=namespace,
                     MetricName=metric,
                     Dimensions=[{'Name': 'DBClusterIdentifier', 'Value': cluster['DBClusterIdentifier']}],
                     StartTime=start_time,
                     EndTime=end_time,
                     Period=3600*24*7,  # 7 days
-                    ExtendedStatistics=['p95']
+                    ExtendedStatistics=['p99', 'p50']
                 )
                 
-                if p95_response['Datapoints']:
-                    results[f'{metric_name}_p95'] = max(point['ExtendedStatistics']['p95'] for point in p95_response['Datapoints'])
-                    results['DatapointCount'] = len(p95_response['Datapoints'])
+                if p99_response['Datapoints']:
+                    results[f'{metric_name}_p99'] = max(point['ExtendedStatistics']['p99'] for point in p99_response['Datapoints'])
+                    results[f'{metric_name}_p50'] = max(point['ExtendedStatistics']['p50'] for point in p99_response['Datapoints'])
+                    results['DatapointCount'] = len(p99_response['Datapoints'])
                 else:
-                    results[f'{metric_name}_p95'] = 0
+                    results[f'{metric_name}_p99'] = 0
+                    results[f'{metric_name}_p50'] = 0
             
             # Get average statistics
             avg_response = cloudwatch.get_metric_statistics(
@@ -98,7 +101,8 @@ def get_metrics(cloudwatch, cluster, start_time, end_time):
         except Exception as e:
             logger.error(f"Error getting metric {metric_name} for {cluster['DBClusterIdentifier']}: {str(e)}")
             if metric_name not in ['VolumeBytesUsed', 'BufferCacheHitRatio']:
-                results[f'{metric_name}_p95'] = 0
+                results[f'{metric_name}_p99'] = 0
+                results[f'{metric_name}_p50'] = 0
             results[f'{metric_name}_avg'] = 0
     
     return results
@@ -112,16 +116,20 @@ def process_cluster(account_session, region, cluster, start_time, end_time):
         return [
             cluster.get('AccountId', ''),
             region,
+            cluster.get('DbClusterResourceId', '').lower(),
             cluster['DBClusterIdentifier'],
             cluster.get('Engine', ''),
             cluster.get('EngineVersion', ''),
             cluster.get('DatabaseName', ''),
             cluster.get('Status', ''),
-            metrics.get('VolumeReadIOPs_p95', 0),
+            metrics.get('VolumeReadIOPs_p99', 0),
+            metrics.get('VolumeReadIOPs_p50', 0),
             metrics.get('VolumeReadIOPs_avg', 0),
-            metrics.get('VolumeWriteIOPs_p95', 0),
+            metrics.get('VolumeWriteIOPs_p99', 0),
+            metrics.get('VolumeWriteIOPs_p50', 0),
             metrics.get('VolumeWriteIOPs_avg', 0),
-            metrics.get('CPUUtilization_p95', 0),
+            metrics.get('CPUUtilization_p99', 0),
+            metrics.get('CPUUtilization_p50', 0),
             metrics.get('CPUUtilization_avg', 0),
             metrics.get('VolumeBytesUsed_avg', 0),
             metrics.get('BufferCacheHitRatio_avg', 0),
@@ -225,10 +233,10 @@ def lambda_handler(event, context):
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
-        'AccountId', 'Region', 'ClusterIdentifier', 'Engine', 'EngineVersion',
-        'DatabaseName', 'Status', 'VolumeReadIOPs_p95', 'VolumeReadIOPs_avg',
-        'VolumeWriteIOPs_p95', 'VolumeWriteIOPs_avg', 'CPUUtilization_p95',
-        'CPUUtilization_avg', 'VolumeBytesUsed_avg', 'BufferCacheHitRatio_avg',
+        'AccountId', 'Region', 'DbClusterResourceId', 'ClusterIdentifier', 'Engine', 'EngineVersion',
+        'DatabaseName', 'Status', 'VolumeReadIOPs_p99', 'VolumeReadIOPs_p50', 'VolumeReadIOPs_avg',
+        'VolumeWriteIOPs_p99', 'VolumeWriteIOPs_p50', 'VolumeWriteIOPs_avg', 'CPUUtilization_p99',
+        'CPUUtilization_p50', 'CPUUtilization_avg', 'VolumeBytesUsed_avg', 'BufferCacheHitRatio_avg',
         'DatapointCount'
     ])
 

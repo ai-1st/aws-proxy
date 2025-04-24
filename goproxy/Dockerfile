@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -22,8 +22,11 @@ WORKDIR /app
 # Copy the binary from the builder stage
 COPY --from=builder /app/aws-proxy .
 
+# Create a volume for certificates
+VOLUME ["/app/certs"]
+
 # Expose the proxy port
 EXPOSE 8080
 
-# Run the proxy
-ENTRYPOINT ["/app/aws-proxy"]
+# Run the proxy with default settings
+ENTRYPOINT ["/app/aws-proxy", "--addr", ":8080", "--cert", "/app/certs/aws-proxy.crt", "--key", "/app/certs/aws-proxy.key", "--verbose", "true", "--permissive", "true"]

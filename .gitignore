@@ -67,3 +67,6 @@ curl_log.txt
 ~/.aws-proxy/certs/
 samconfig.toml
 .aws-sam/
+.env
+certs/
+*.crt

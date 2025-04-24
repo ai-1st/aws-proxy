@@ -91,7 +91,7 @@ func NewAWSProxy(logger *log.Logger, certFile, keyFile string, permissive bool, 
 
 	logger.Printf("Certificate file: %s", awsProxy.caCertFile)
 	logger.Printf("Key file: %s", awsProxy.caKeyFile)
-	logger.Printf("To use with AWS CLI, set: export AWS_CA_BUNDLE=%s", awsProxy.caCertFile)
+	logger.Printf("To use with AWS CLI on the local machine, set: export AWS_CA_BUNDLE=%s", awsProxy.caCertFile)
 
 	return awsProxy, nil
 }
@@ -136,8 +136,8 @@ func (p *AWSProxy) setupProxy() {
 			}
 
 			// Create AWS-style error response
-			errorResponse := 
-			`<?xml version="1.0" encoding="UTF-8"?>
+			errorResponse :=
+				`<?xml version="1.0" encoding="UTF-8"?>
 			<ErrorResponse>
 				<Error>
 					<Code>AccessDenied</Code>
@@ -175,7 +175,7 @@ func (p *AWSProxy) setupProxy() {
 					// Restore the body for future readers
 					resp.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
 				}
-			} 
+			}
 		}
 		return resp
 	})

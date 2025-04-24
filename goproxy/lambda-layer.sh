@@ -20,10 +20,10 @@ fi
 
 # Create a temporary directory for the layer
 TEMP_DIR=$(mktemp -d)
-mkdir -p "$TEMP_DIR/opt"
+mkdir -p "$TEMP_DIR/certs"
 
 # Copy the certificate to the layer directory
-cp build/aws-proxy.crt "$TEMP_DIR/opt/"
+cp certs/aws-proxy.crt "$TEMP_DIR/certs/"
 
 # Create the layer zip file
 cd "$TEMP_DIR"
@@ -38,7 +38,7 @@ for region in "${REGIONS[@]}"; do
         --description "$LAYER_DESC" \
         --license-info "MIT" \
         --zip-file "fileb://$TEMP_DIR/../aws-proxy-cert-layer.zip" \
-        --compatible-runtimes provided provided.al2 nodejs python java ruby dotnet go1.x \
+        --compatible-runtimes nodejs20.x python3.11 python3.12 java11 java17 java21 provided.al2 provided.al2023 \
         --compatible-architectures x86_64 arm64 \
         --region "$region" \
         --query 'Version' \

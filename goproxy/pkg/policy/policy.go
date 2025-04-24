@@ -8,10 +8,11 @@ import (
 	"strings"
 	"sync"
 
+	"bytes"
+
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	lru "github.com/hashicorp/golang-lru"
-	"bytes"
 )
 
 // AccessKeyInfo stores information about an AWS access key
@@ -97,7 +98,7 @@ func (p *PolicyEngine) IsAllowed(req *http.Request) bool {
 
 	// Check if the access key is in the cache
 	if info, ok := p.getAccessKeyInfo(accessKeyID); ok {
-		p.logger.Printf("PASS: Access key %s, account: %s, role_arn: %s", 
+		p.logger.Printf("PASS: Access key %s, account: %s, role_arn: %s",
 			accessKeyID, info.AccountID, info.RoleARN)
 		return true
 	}
@@ -175,7 +176,7 @@ func (p *PolicyEngine) CacheAccessKey(accessKeyID, accountID string, roleARN str
 	info := &AccessKeyInfo{
 		AccessKeyID: accessKeyID,
 		AccountID:   accountID,
-		RoleARN:    roleARN,
+		RoleARN:     roleARN,
 	}
 	p.accessKeyCache.Add(accessKeyID, info)
 }
@@ -237,8 +238,8 @@ func (p *PolicyEngine) ProcessAssumeRoleResponse(req *http.Request, bodyBytes []
 	// Verify once again that the source access key is in our cache and allowed
 	_, ok := p.getAccessKeyInfo(sourceAccessKeyID)
 	if !ok {
-		p.logger.Printf("BAD RESPONSE: Source access key %s not in allowed - why did even pass this request? %s", 
-		sourceAccessKeyID, body)
+		p.logger.Printf("BAD RESPONSE: Source access key %s not in allowed - why did even pass this request? %s",
+			sourceAccessKeyID, body)
 		return
 	}
 
