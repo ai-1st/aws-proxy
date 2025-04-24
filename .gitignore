@@ -69,4 +69,5 @@ samconfig.toml
 .aws-sam/
 .env
 certs/
+keys/
 *.crt

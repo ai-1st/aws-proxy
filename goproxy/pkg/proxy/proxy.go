@@ -39,6 +39,7 @@ type certStorageAdapter struct {
 // Fetch implements the goproxy.CertStorage interface
 func (c *certStorageAdapter) Fetch(hostname string, gen func() (*tls.Certificate, error)) (*tls.Certificate, error) {
 	// Try to generate certificate using our cert manager
+	c.logger.Printf("Generating certificate for %s", hostname)
 	tlsCert, err := c.certManager.GenerateCertForHost(hostname)
 	if err != nil {
 		c.logger.Printf("Failed to generate certificate for %s: %v, falling back to default generator", hostname, err)

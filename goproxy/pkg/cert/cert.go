@@ -106,27 +106,8 @@ func NewCertManager(certFile, keyFile string) (*CertManager, error) {
 			Certificates: []tls.Certificate{cert},
 		}
 	} else {
-		// Generate a new CA certificate
-		ca, key, err := GenerateCA()
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate CA: %v", err)
-		}
-		cm.CACert = ca
-		cm.CAPrivKey = key
-
-		// Create TLS config with the new certificate
-		cert, err := GenerateTLSCert(ca, key)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate TLS cert: %v", err)
-		}
-		cm.tlsConfig = &tls.Config{
-			Certificates: []tls.Certificate{cert},
-		}
-
-		// Save the CA certificate and key to files
-		if err := cm.SaveCA(cm.CACertFile, cm.CAKeyFile); err != nil {
-			return nil, fmt.Errorf("failed to save CA certificate: %v", err)
-		}
+		// Certificate or key file doesn't exist
+		return nil, fmt.Errorf("certificate or key file not found: %s, %s. Please generate them first using the generate-cert command", certFile, keyFile)
 	}
 
 	return cm, nil
@@ -186,7 +167,7 @@ func GenerateCA() (*x509.Certificate, *rsa.PrivateKey, error) {
 }
 
 // GenerateTLSCert creates a TLS certificate signed by the CA
-func GenerateTLSCert(ca *x509.Certificate, caKey *rsa.PrivateKey) (tls.Certificate, error) {
+func GenerateTLSCert(ca *x509.Certificate, caKey *rsa.PrivateKey, ipAddresses []string, dnsNames []string) (tls.Certificate, error) {
 	// Generate a new private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -213,9 +194,24 @@ func GenerateTLSCert(ca *x509.Certificate, caKey *rsa.PrivateKey) (tls.Certifica
 		IsCA:                  false,
 	}
 
-	// Add IP addresses and DNS names
-	template.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
-	template.DNSNames = []string{"localhost", "aws-proxy"}
+	// Add IP addresses
+	template.IPAddresses = []net.IP{}
+	for _, ip := range ipAddresses {
+		template.IPAddresses = append(template.IPAddresses, net.ParseIP(ip))
+	}
+	
+	// If no IP addresses were provided, add localhost by default
+	if len(template.IPAddresses) == 0 {
+		template.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+	}
+	
+	// Add DNS names
+	template.DNSNames = dnsNames
+	
+	// If no DNS names were provided, add localhost by default
+	if len(template.DNSNames) == 0 {
+		template.DNSNames = []string{"localhost", "aws-proxy"}
+	}
 
 	// Create the certificate
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, ca, &privateKey.PublicKey, caKey)

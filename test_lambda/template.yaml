@@ -23,23 +23,22 @@ Parameters:
   PROXYPORT:
     Type: String
     Description: Port of the aws-proxy instance
-  AWSCABUNDLE:
+  LAYERVERSION:
     Type: String
-    Description: Path to CA bundle
-    Default: /opt/aws-proxy.crt
+    Description: Version number of the aws-proxy-cert layer
 
 Resources:
   RDSMetricsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: rds-scanner
+      FunctionName: rds-scanner3
       CodeUri: src/
       Handler: app.lambda_handler
       Runtime: python3.12
       Timeout: 900
       MemorySize: 512
       Layers:
-        - arn:aws:lambda:us-east-1:552960913849:layer:aws-proxy-cert:2
+        - !Sub "arn:aws:lambda:us-east-1:552960913849:layer:aws-proxy-cert:${LAYERVERSION}"
       Environment:
         Variables:
           ROLE_NAME: !Ref ROLENAME
@@ -47,7 +46,8 @@ Resources:
           S3_PATH: !Ref S3OUTPUTPATH
           HTTP_PROXY: !Sub "http://${PROXYHOST}:${PROXYPORT}"
           HTTPS_PROXY: !Sub "http://${PROXYHOST}:${PROXYPORT}"
-          AWS_CA_BUNDLE: !Ref AWSCABUNDLE
+          AWS_CA_BUNDLE: /opt/certs/aws-proxy.crt
+          REQUESTS_CA_BUNDLE: /opt/certs/aws-proxy.crt
       VpcConfig:
         SecurityGroupIds:
           - !Ref SECURITYGROUPID

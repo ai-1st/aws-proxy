@@ -16,11 +16,16 @@ import (
 var (
 	addr            = flag.String("addr", ":8080", "Proxy listen address")
 	verbose         = flag.Bool("verbose", true, "Enable verbose logging")
-	certFile        = flag.String("cert", "aws-proxy.crt", "Path to TLS certificate file (default: aws-proxy.crt in current directory)")
-	keyFile         = flag.String("key", "aws-proxy.key", "Path to TLS key file (default: aws-proxy.key in current directory)")
+	certFile        = flag.String("cert", "certs/aws-proxy.crt", "Path to TLS certificate file")
+	keyFile         = flag.String("key", "keys/aws-proxy.key", "Path to TLS key file")
 	permissive      = flag.Bool("permissive", true, "Allow all requests regardless of IAM role")
 	allowedAccounts = flag.String("allowed-accounts", "", "Comma-separated list of allowed AWS account IDs")
 )
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
 
 func main() {
 	flag.Parse()
@@ -44,6 +49,11 @@ func main() {
 		if err == nil {
 			keyPath = absPath
 		}
+	}
+
+	// Check if certificate and key files exist
+	if !fileExists(certPath) || !fileExists(keyPath) {
+		logger.Fatalf("Certificate or key file not found: %s, %s. Please generate them first using the generate-cert command", certPath, keyPath)
 	}
 
 	logger.Printf("Certificate file: %s", certPath)
@@ -85,7 +95,7 @@ func main() {
 	}()
 
 	logger.Printf("Proxy server started on %s", *addr)
-	
+
 	// Wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
