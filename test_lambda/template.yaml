@@ -44,10 +44,8 @@ Resources:
           ROLE_NAME: !Ref ROLENAME
           S3_BUCKET: !Ref S3OUTPUTBUCKET
           S3_PATH: !Ref S3OUTPUTPATH
-          HTTP_PROXY: !Sub "http://${PROXYHOST}:${PROXYPORT}"
           HTTPS_PROXY: !Sub "http://${PROXYHOST}:${PROXYPORT}"
           AWS_CA_BUNDLE: /opt/certs/aws-proxy.crt
-          REQUESTS_CA_BUNDLE: /opt/certs/aws-proxy.crt
       VpcConfig:
         SecurityGroupIds:
           - !Ref SECURITYGROUPID
