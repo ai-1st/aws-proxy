@@ -1,5 +1,5 @@
 # AWS Proxy Makefile
-.PHONY: all build build-generate-cert generate-cert custom-cert run lambda-layer clean clean-all test help
+.PHONY: all build generate-cert custom-cert run lambda-layer clean clean-all test help
 
 # Output directories
 BUILD_DIR = build
@@ -27,9 +27,6 @@ build: dirs
 	@echo "Building AWS Proxy..."
 	go build $(GO_BUILD_FLAGS) -o $(PROXY_BIN) ./cmd/aws-proxy
 	@echo "AWS Proxy built successfully at $(PROXY_BIN)"
-
-# Build the certificate generator
-build-generate-cert: dirs
 	@echo "Building certificate generator..."
 	go build $(GO_BUILD_FLAGS) -o $(CERT_GEN_BIN) ./cmd/generate-cert
 	@echo "Certificate generator built successfully at $(CERT_GEN_BIN)"
@@ -80,8 +77,7 @@ help:
 	@echo ""
 	@echo "Available targets:"
 	@echo "  all              Build everything (default)"
-	@echo "  build            Build the AWS Proxy binary"
-	@echo "  build-generate-cert Build the certificate generator"
+	@echo "  build            Build the AWS Proxy binary and the certificate generator"
 	@echo "  generate-cert    Generate certificates with default settings"
 	@echo "  custom-cert      Generate certificates with custom settings"
 	@echo "                   Usage: make custom-cert IPS=1.2.3.4,5.6.7.8 DNS=example.com,proxy.local"
