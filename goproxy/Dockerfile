@@ -13,6 +13,7 @@ COPY . .
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -o aws-proxy ./cmd/aws-proxy
+RUN CGO_ENABLED=0 GOOS=linux go build -o generate-cert ./cmd/generate-cert
 
 # Use a smaller image for the final container
 FROM alpine:latest
