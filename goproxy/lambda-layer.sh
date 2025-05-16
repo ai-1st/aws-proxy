@@ -18,9 +18,18 @@ if [ ! -f "certs/aws-proxy.crt" ]; then
     exit 1
 fi
 
-# Create the layer zip file
-zip -r aws-proxy-cert-layer.zip certs/
+# Check system certificates exists
+if [ ! -f "/etc/ssl/certs/ca-certificates.crt" ]; then
+    echo "Error: /etc/ssl/certs/ca-certificates.crt not found"
+    exit 1
+fi
 
+# Create the layer zip file
+mkdir temp
+cd temp
+mkdir certs
+cat /etc/ssl/certs/ca-certificates.crt ../certs/aws-proxy.crt > certs/ca-bundle.crt
+zip -r aws-proxy-cert-layer.zip certs/
 # Publish the layer to each region
 for region in "${REGIONS[@]}"; do
     echo "Publishing layer to $region..."
@@ -51,6 +60,7 @@ for region in "${REGIONS[@]}"; do
 done
 
 # Clean up
-rm aws-proxy-cert-layer.zip
+cd ..
+rm -rf temp/
 
 echo "Layer creation complete"
