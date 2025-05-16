@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	addr            = flag.String("addr", ":8080", "Proxy listen address")
+	addr            = flag.String("addr", "127.0.0.1:8080", "Proxy listen address")
 	verbose         = flag.Bool("verbose", true, "Enable verbose logging")
 	certFile        = flag.String("cert", "certs/aws-proxy.crt", "Path to TLS certificate file")
 	keyFile         = flag.String("key", "keys/aws-proxy.key", "Path to TLS key file")

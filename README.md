@@ -14,6 +14,9 @@ A Go-based implementation of the AWS proxy using the goproxy library for MITM in
 ## Requirements
 
 - Go 1.16 or higher
+- make
+- zip
+- aws cli 
 
 ## Building
 
