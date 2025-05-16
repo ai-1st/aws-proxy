@@ -22,6 +22,7 @@ WORKDIR /app
 
 # Copy the binary from the builder stage
 COPY --from=builder /app/aws-proxy .
+COPY --from=builder /app/generate-cert .
 
 # Create a volume for certificates
 VOLUME ["/app/certs"]
