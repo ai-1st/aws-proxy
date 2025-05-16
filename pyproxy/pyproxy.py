@@ -2,6 +2,7 @@ import asyncio
 import socket
 import ssl
 import logging
+import argparse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -73,8 +74,14 @@ async def start_proxy(host='0.0.0.0', port=8888):
         await server.serve_forever()
 
 def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='AWS Proxy Server')
+    parser.add_argument('--host', default='0.0.0.0', help='Host address to bind to (default: 0.0.0.0)')
+    parser.add_argument('--port', type=int, default=8080, help='Port to listen on (default: 8080)')
+    args = parser.parse_args()
+    
     try:
-        asyncio.run(start_proxy())
+        asyncio.run(start_proxy(host=args.host, port=args.port))
     except KeyboardInterrupt:
         logger.info("Shutting down proxy server")
     except Exception as e:
