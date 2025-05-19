@@ -71,3 +71,4 @@ samconfig.toml
 certs/
 keys/
 *.crt
+*.zip

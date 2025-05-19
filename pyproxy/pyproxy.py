@@ -3,13 +3,23 @@ import socket
 import ssl
 import logging
 import argparse
+import ipaddress
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-async def handle_client(reader, writer):
+async def handle_client(reader, writer, allowed_ip_range=None):
     try:
+        # Get client address
+        client_addr = writer.get_extra_info('peername')[0]
+        
+        # Check if client IP is in allowed range
+        if allowed_ip_range and not is_ip_in_range(client_addr, allowed_ip_range):
+            logger.warning(f"Client {client_addr} not in allowed IP range {allowed_ip_range}")
+            writer.close()
+            return
+            
         # Read the client request
         request = await reader.read(4096)
         if not request:
@@ -67,9 +77,30 @@ async def handle_client(reader, writer):
         except:
             pass
 
-async def start_proxy(host='0.0.0.0', port=8888):
-    server = await asyncio.start_server(handle_client, host, port)
-    logger.info(f"Proxy server running on {host}:{port}")
+def is_ip_in_range(ip, ip_range):
+    """
+    Check if an IP address is within the specified CIDR range.
+    
+    Args:
+        ip (str): The IP address to check
+        ip_range (str): CIDR notation range (e.g., '192.168.1.0/24')
+        
+    Returns:
+        bool: True if IP is in range, False otherwise
+    """
+    try:
+        return ipaddress.ip_address(ip) in ipaddress.ip_network(ip_range)
+    except ValueError:
+        logger.error(f"Invalid IP address or range: {ip}, {ip_range}")
+        return False
+
+async def start_proxy(host='0.0.0.0', port=8888, allowed_ip_range=None):
+    server = await asyncio.start_server(
+        lambda r, w: handle_client(r, w, allowed_ip_range),
+        host, port
+    )
+    ip_range_info = f" (allowed clients: {allowed_ip_range})" if allowed_ip_range else ""
+    logger.info(f"Proxy server running on {host}:{port}{ip_range_info}")
     async with server:
         await server.serve_forever()
 
@@ -78,10 +109,11 @@ def main():
     parser = argparse.ArgumentParser(description='AWS Proxy Server')
     parser.add_argument('--host', default='0.0.0.0', help='Host address to bind to (default: 0.0.0.0)')
     parser.add_argument('--port', type=int, default=8080, help='Port to listen on (default: 8080)')
+    parser.add_argument('--allowed-ip-range', help='CIDR notation of allowed client IP range (e.g., 192.168.1.0/24)')
     args = parser.parse_args()
     
     try:
-        asyncio.run(start_proxy(host=args.host, port=args.port))
+        asyncio.run(start_proxy(host=args.host, port=args.port, allowed_ip_range=args.allowed_ip_range))
     except KeyboardInterrupt:
         logger.info("Shutting down proxy server")
     except Exception as e:

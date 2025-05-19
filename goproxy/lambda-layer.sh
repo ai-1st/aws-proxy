@@ -19,8 +19,8 @@ if [ ! -f "certs/aws-proxy.crt" ]; then
 fi
 
 # Check system certificates exists
-if [ ! -f "/etc/ssl/certs/ca-certificates.crt" ]; then
-    echo "Error: /etc/ssl/certs/ca-certificates.crt not found"
+if [ ! -f "/etc/ssl/certs/ca-certificates.crt" ] && [ ! -f "/etc/ssl/cert.pem" ]; then
+    echo "Error: /etc/ssl/certs/ca-certificates.crt or /etc/ssl/cert.pem not found"
     exit 1
 fi
 
@@ -28,7 +28,16 @@ fi
 mkdir temp
 cd temp
 mkdir certs
-cat /etc/ssl/certs/ca-certificates.crt ../certs/aws-proxy.crt > certs/ca-bundle.crt
+
+# Use the appropriate certificate file based on which one exists
+# if [ -f "/etc/ssl/certs/ca-certificates.crt" ]; then
+#     echo "Using /etc/ssl/certs/ca-certificates.crt as the root certificate"
+#     cat /etc/ssl/certs/ca-certificates.crt ../certs/aws-proxy.crt > certs/ca-bundle.crt
+# else
+#     echo "Using /etc/ssl/cert.pem as the root certificate"
+#     cat /etc/ssl/cert.pem ../certs/aws-proxy.crt > certs/ca-bundle.crt
+# fi
+cat ../certs/ca-certificates.crt ../certs/aws-proxy.crt > certs/ca-bundle.crt
 zip -r aws-proxy-cert-layer.zip certs/
 # Publish the layer to each region
 for region in "${REGIONS[@]}"; do
@@ -61,6 +70,6 @@ done
 
 # Clean up
 cd ..
-rm -rf temp/
+
 
 echo "Layer creation complete"
